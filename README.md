@@ -1,2 +1,5 @@
-# fidelidadedabase
-Pesquisa de acompanhamento da orientação do Governo em votações nominais pelos deputados da coalizão
+# Pesquisa de acompanhamento da orientação do Governo em votações nominais pelos deputados da coalizão
+
+O presente estudo se dedica à análise das votações nominais na Câmara dos Deputados, no período de 1989 a 2012, e testa, à luz da teoria dos ciclos eleitorais, a hipótese de que parlamentares em períodos pré-eleitorais alteram o padrão de votação, visando à aprovação de políticas distributivistas, de forma a demonstrar sintonia com os interesses dos eleitores.
+
+Adotou-se abordagem quantitativa para verificar se há diferença entre as médias dos votos parlamentares em consonância com a orientação do Governo em períodos pré-eleitorais e não eleitorais. Os resultados encontrados contradizem a ideia de alteração do padrão de voto e contestam o índice de 80% de adesão à orientação do Governo.
