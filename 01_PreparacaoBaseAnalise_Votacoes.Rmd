@@ -1,0 +1,278 @@
+---
+title: "Limpeza dos dados de Votações"
+author: "Nivaldo e Fabiano"
+output: html_document
+---
+
+# Definição das legislaturas.
+
+```{r}
+legs <- c(1989, 1991, 1995, 1999, 2003, 2007, 2011)
+```
+
+# Data frame "votacoes".
+
+```{r}
+votacoes <- c()
+
+for(leg in legs){
+  arq <- paste0("Dados\\votacoes_", leg, ".csv")  
+  votacoes <- rbind( votacoes, read.csv(arq, sep=";", colClasses="character") )
+}
+
+head(votacoes)
+dim(votacoes)
+```
+
+### Ajusta formato dos campos Id_Votacao, Data e TipoVotacao.
+
+```{r}
+# retira o ",00" do campo Id_Votacao
+votacoes$Id_Votacao <- as.character(sapply(votacoes$Id_Votacao, function(x){strsplit(x,",")[[1]][1]}))
+votacoes$Id_Votacao <- as.numeric(votacoes$Id_Votacao)
+# retira o "00:00:00" do campo Data
+votacoes$Data <- as.character(sapply(votacoes$Data, function(x){strsplit(x," ")[[1]][1]}))
+# retira o ",00" do campo TipoVotacao
+votacoes$TipoVotacao <- as.character(sapply(votacoes$TipoVotacao, function(x){strsplit(x,",")[[1]][1]}))
+# retira o "." no campo Projeto
+#votacoes$Projeto <- as.character(sapply(votacoes$Projeto, function(x){ gsub("[.]","",x) }))
+# retira o "." na SiglaProjeto
+#votacoes$SiglaProjeto <- as.character(sapply(votacoes$SiglaProjeto, function(x){ gsub("[.]","",x) }))
+
+head(votacoes)
+```
+
+### Transforma campos em fatores para identificar níveis indesejados.
+
+```{r}
+votacoes$Resultado <- as.factor(votacoes$Resultado)
+votacoes$TipoVotacao <- as.factor(votacoes$TipoVotacao)
+votacoes$Projeto <- as.factor(votacoes$Projeto) 
+
+levels(votacoes$Resultado)
+levels(votacoes$TipoVotacao)
+levels(votacoes$Projeto)
+```
+
+### Cria campo TipoProjeto a partir de SiglaProjeto.
+
+```{r}
+votacoes$TipoProjeto <- substr(votacoes$SiglaProjeto,1,3)
+votacoes$SiglaProjeto <- as.factor(votacoes$SiglaProjeto) # para verificar SiglaProjeto igual a ""
+```
+
+### Verifica brancos "", vetos e inconsistências entre Projeto e SiglaProjeto.
+
+```{r}
+linhas <- votacoes$Resultado == "" | 
+          votacoes$Projeto == "" | 
+          votacoes$SiglaProjeto == "" | 
+          votacoes$Projeto != votacoes$TipoProjeto |
+          votacoes$TipoProjeto == "VET"
+sum(linhas)
+```
+
+### Verifica nulos e acrescenta ao conjunto de inconsistências.
+
+```{r}
+colSums(is.na(votacoes))
+
+# acrescenta os nulos de TipoVotacao no conjunto de linhas inconsistentes
+linhas <- linhas | is.na(votacoes$TipoVotacao)
+
+sprintf("Identificadas %d linhas com possíveis inconsistências.",sum(linhas))
+```
+
+### Retira projetos do tipo "VET".
+
+```{r}
+votacoes <- votacoes[votacoes$TipoProjeto != "VET", ]
+nrow(votacoes)
+```
+
+# Data frame "votacoes_votos".
+
+```{r}
+votacoes_votos <- c()
+
+for(leg in legs){
+  arq <- paste0("Dados\\votacoes_votos_", leg, ".csv")  
+  votacoes_votos <- rbind( votacoes_votos, read.csv(arq, sep=";", colClasses="character") )
+}
+
+head(votacoes_votos)
+dim(votacoes_votos)
+```
+
+### Ajusta formato do campo Id_Votacao.
+
+```{r}
+# retira o ",00" do campo Id_Votacao
+votacoes_votos$Id_Votacao <- as.character(sapply(votacoes_votos$Id_Votacao, function(x){strsplit(x,",")[[1]][1]}))
+votacoes_votos$Id_Votacao <- as.numeric(votacoes_votos$Id_Votacao)
+head(votacoes_votos)
+```
+
+### Transforma campos em fatores para identificar níveis indesejados.
+
+```{r}
+votacoes_votos$Nome_Dep <- as.factor(votacoes_votos$Nome_Dep)
+votacoes_votos$Sigla_Partido <- as.factor(votacoes_votos$Sigla_Partido)
+votacoes_votos$Voto <- as.factor(votacoes_votos$Voto)
+votacoes_votos$VotoLider <- as.factor(votacoes_votos$VotoLider)
+votacoes_votos$VotoGov <- as.factor(votacoes_votos$VotoGov)
+
+str(votacoes_votos$Nome_Dep)
+levels(votacoes_votos$Sigla_Partido)
+levels(votacoes_votos$Voto)
+levels(votacoes_votos$VotoLider)
+levels(votacoes_votos$VotoGov)
+
+str(votacoes_votos)
+
+```
+
+### Ajuste dos níveis indesejados.
+
+```{r, echo=FALSE}
+
+sprintf("Remoção de %d registros com Nome_Dep em branco. Restantes: %d", sum(votacoes_votos$Nome_Dep == ""), sum(votacoes_votos$Nome_Dep != "") )
+votacoes_votos <- votacoes_votos[votacoes_votos$Nome_Dep != "", ]
+
+sprintf("Atualiza os valores de Voto para maiúscula: %d registros atualizados",  sum(votacoes_votos$Voto == "s" | votacoes_votos$Voto == "n") )
+
+linhas <- votacoes_votos$Voto == "s" | votacoes_votos$Voto == "n"
+votacoes_votos$Voto[linhas] <- toupper(votacoes_votos$Voto[linhas])
+votacoes_votos[linhas, ]
+
+```
+
+### Verifica nulos.
+
+```{r}
+colSums(is.na(votacoes_votos))
+```
+
+### Verifica registros em votacoes_votos sem correspondência em votacoes e retira registros não correspondentes.
+.
+```{r}
+sprintf("Das %d votações existentes em 'votacoes_votos', apenas %d estão em 'votacoes'.", length(levels(as.factor(votacoes_votos$Id_Votacao))), sum( (levels(as.factor(votacoes_votos$Id_Votacao)) %in% levels(as.factor(votacoes$Id_Votacao)))) )
+
+votacoes_votos <- votacoes_votos[ votacoes_votos$Id_Votacao %in% votacoes$Id_Votacao, ]
+
+```
+
+### Grava arquivo "_votacoes_votos.csv".
+
+```{r}
+dim(votacoes_votos)
+rownames(votacoes_votos) <- NULL
+write.csv2(votacoes_votos, "_votacoes_votos.csv")
+```
+
+### Calcula índice de ausência por votação e grava arquivo "_votacoes.csv".
+
+```{r}
+# calcula indice de ausencia por votacao
+i <- sapply(votacoes$Id_Votacao,
+            function(x){
+              nrow( votacoes_votos[votacoes_votos$Id_Votacao == x & votacoes_votos$Voto == "F", ])/sum(votacoes_votos$Id_Votacao == x)
+            }
+     )
+
+votacoes$IndiceAusenciaNaVotacao <- i
+
+# retira "." e "/"
+votacoes$SiglaProjeto2 <- as.character(sapply(votacoes$SiglaProjeto, function(x){ gsub("[./]","",x) }))
+
+rownames(votacoes) <- NULL
+write.csv2(votacoes, "_votacoes.csv")
+```
+
+# Data frame "base_projetos".
+
+```{r}
+base_projetos <- read.csv("Dados\\base_projetos.csv", sep=";", colClasses="factor")
+
+str(base_projetos)
+
+head(base_projetos[,c(1:11)])
+dim(base_projetos)
+```
+
+### Projetos em votacoes faltantes em base_projetos.
+
+```{r}
+# retira "." e "/"
+base_projetos$PROJANO2 <- as.character(sapply(base_projetos$PROJANO, function(x){ gsub("[./]","",x) }))
+
+sprintf("Dos %d projetos existentes em 'votacoes', apenas %d estão em 'base_projetos'.", length(levels(as.factor(votacoes$SiglaProjeto2))), sum(levels(as.factor(votacoes$SiglaProjeto2)) %in% base_projetos$PROJANO2))
+```
+
+### Grava arquivo "_base_projetos.csv".
+
+```{r}
+rownames(base_projetos) <- NULL
+write.csv2(base_projetos, "_base_projetos.csv")
+```
+
+# Data frame "analise"
+
+### Criação do data.frame **analise** que compila **votacoes** e **votacoes_votos**.
+
+```{r}
+analise <- merge(votacoes_votos, votacoes[ , c(1:6, 9)])
+# converte o campo Data para o tipo data 
+analise$Data <- as.Date(analise$Data, format = "%d/%m/%Y")
+# cria coluna ano
+analise$Ano <- format(analise$Data,'%Y')
+
+# converte para caracter
+analise$Sigla_Partido <- as.character(analise$Sigla_Partido)
+# renomeia partido PP_1 e PP_2 para PP
+analise[analise$Sigla_Partido == "PP_1" | analise$Sigla_Partido == "PP_2", "Sigla_Partido"] <- "PP"
+# renomeia partido PPB_1 para PPB
+analise[analise$Sigla_Partido == "PPB_1", "Sigla_Partido"] <- "PPB"
+# renomeia partido PV1 para PV
+analise[analise$Sigla_Partido == "PV1", "Sigla_Partido"] <- "PV"
+# converte para fator
+# analise$Sigla_Partido <- as.factor(analise$Sigla_Partido)
+
+# remove data.frames dos arquivos compilados
+rm(votacoes, votacoes_votos)
+
+```
+
+### Insere indicador de coalizão.
+
+```{r}
+coalizoes <- read.csv("Dados\\coalizoes.csv", sep=";", colClasses="character")
+
+for(i in 1:nrow(coalizoes)){
+  analise[ (analise$Sigla_Partido %in% strsplit(coalizoes$Partido[i],">")[[1]]) &
+            analise$Ano == coalizoes$Ano[i] , "Coalizao"] <- coalizoes$Coalizao[i]
+  analise[ (analise$Sigla_Partido %in% strsplit(coalizoes$Partido[i],">")[[1]]) &
+            analise$Ano == coalizoes$Ano[i] , "flagCoalizao"] <- coalizoes$flagCoalizao[i]
+}
+
+dim(analise)
+```
+
+Verifica o quantitativo de registros em que o *flag* de coalizão é igual a NA, bem como a combinação ano-partido em que não houve correspondência com a tabela de coalizão. **É necessário atualizar a tabela de coalizão.**
+
+```{r}
+naCoalizao <- is.na(analise$flagCoalizao)
+sum(naCoalizao)
+
+vetNaCoalizao <- paste0(analise$Ano[naCoalizao], '-', analise$Sigla_Partido[naCoalizao])
+
+levels(as.factor(vetNaCoalizao))
+
+```
+
+### Grava arquivo "_analise.csv".
+
+```{r}
+rownames(analise) <- NULL
+write.csv2(analise, "_analise.csv")
+```

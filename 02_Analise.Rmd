@@ -1,0 +1,260 @@
+---
+title: "Análise"
+author: "Nivaldo e Fabiano"
+output: html_document
+---
+
+Leitura do arquivo **\_analise.csv** que contém a compilação das votações e respectivos votos em formato *tidy*.
+
+```{r}
+analise <- read.csv("_analise.csv", sep=";", colClasses="character")
+analise <- analise[ ,2:length(analise)] # remoção da coluna X
+# converte o campo Data para o tipo Date
+analise$Data <- as.Date(analise$Data, format = "%Y-%m-%d")
+
+votacoes <- read.csv("_votacoes.csv", sep=";", colClasses="character")
+votacoes <- votacoes[ ,2:length(votacoes)] # remoção da coluna X
+# converte o campo Data para o tipo Date
+votacoes$Data <- as.Date(votacoes$Data, format = "%d/%m/%Y")
+
+```
+
+### Estimação da fidelidade à bancada 
+
+Comparando-se os votos do parlamentar com a orientação do líder do partido, considerando-se apenas as orientações "S" e "N" (as obstruções "O" não foram consideradas).
+
+```{r}
+opcoesLider <- c("S", "N")
+analise$acompanhaLider <- as.integer( analise$Voto == analise$VotoLider & (analise$Voto %in% opcoesLider) & (analise$VotoLider %in% opcoesLider))
+
+# quantidade de votos em que o parlamentar acompanha o líder
+sum(analise$acompanhaLider)
+
+```
+
+```{r, echo=FALSE}
+# caso considerassemos a obstrucao ...
+opcoesLider <- c("N", "S", "O")
+analise$acompanhaLider2 <- as.integer( analise$Voto == analise$VotoLider & (analise$Voto %in% opcoesLider) & (analise$VotoLider %in% opcoesLider))
+
+```
+
+Computando-se as orientações de obstrução dos líderes (`r sum(analise$VotoLider == "O")`) e subtraindo-se das vezes em que essa orientação foi seguida pelos parlamentares (`r sum(analise$acompanhaLider2)-sum(analise$acompanhaLider)`), restam `r sum(analise$VotoLider == "O")-(sum(analise$acompanhaLider2)-sum(analise$acompanhaLider))`. Esse quantitativo corresponde, supostamente, ao não acompanhamento às obstruções. Contudo, não é incomum, antes de orinetar a obstrução, que o líder sinalize "S" ou "N" e, em seguida, registre "O". A intensão da primeira sinalização é, na verdade, a que prevalece, sendo o registro "O" apenas uma jogada política. Logo, é um movimento que precisa ser explicado caso-a-caso e, portanto, não será considerado na presente análise.
+
+Importante, também, dedicar atenção ao percentual de faltas nas votações, o que representa **`r round(sum(analise$Voto == "F" | analise$Voto == "A")/nrow(analise)*100, 2)`%** dos `r nrow(analise)` registros de votos da base em estudo.
+
+### Estimação da fidelidade ao Governo
+
+A estimação da fidelidade ao Governo segue o mesmo critério da fidelidade à bancada, ou seja, desconsideram-se as orientações de obstrução.
+
+```{r}
+opcoesGoverno <- c("N", "S")
+analise$acompanhaGov <- as.integer( analise$Voto == analise$VotoGov & (analise$Voto %in% opcoesGoverno) )
+
+# quantidade de votos em que o parlamentar acompanhou o Governo
+sum(analise$acompanhaGov)
+
+# vezes em que o líder da bancada acompanhou a orientação do líder do Governo
+analise$acompanhaLiderGov <- as.integer(analise$acompanhaLider == analise$acompanhaGov & analise$acompanhaGov == 1)
+
+```
+
+Vale destacar a quantidade de vezes em que o líder da bancada acompanhou a orientação do líder do Governo (`r sum(analise$acompanhaLiderGov)`), o que corresponde a **`r round(sum(analise$acompanhaLiderGov)/nrow(analise)*100, 2)`%** das vezes.
+
+#### Estatísticas de votação
+
+```{r}
+acompanha <- sum(analise$acompanhaGov)
+naoacompanha <- sum(as.integer( analise$Voto != analise$VotoGov & (analise$Voto %in% opcoesGoverno)))
+total <- acompanha + naoacompanha
+
+```
+
+```{r, echo=FALSE}
+sprintf("Votos em que o parlamentar acompanhou o Governo: %d", acompanha)
+sprintf("Votos em que o parlamentar não acompanhou o Governo: %d", naoacompanha)
+sprintf("Total de votos: %d", acompanha + naoacompanha)
+sprintf("Percentual de acompanhamento: %f", acompanha / total * 100)
+sprintf("Percentual de descolamento: %f", naoacompanha / total * 100)
+
+```
+
+
+### Estimativa por período
+
+Estimativa dos índices de acompanhamento (bancada e Governo) por períodos: **1/Mar** a **31/Out**, **1/Nov** a **31/Dez** e **1/Jan** a **31/Dez**. Os índices são calculados de forma geral ("G") e separadamente para a coalizão ("C") e oposição ("O"), descontando-se ("xF") e sem descontar os faltosos.
+
+```{r, echo=FALSE}
+# períodos
+periodos <- list(
+                  c('1/3/' ,'31/10/'),
+                  c('1/11/','31/12/'),
+                  c('1/1/' ,'31/12/')
+            )
+
+anos <- 1989:2012
+
+dateformat <- "%d/%m/%Y"
+estimaPeriodo <- NULL
+
+for(ano in anos){
+  
+  for(i in 1:length(periodos)){ # para cada período
+
+    dataIni <- as.Date(paste0(periodos[[i]][1],ano), dateformat)
+    dataFim <- as.Date(paste0(periodos[[i]][2],ano), dateformat)
+    
+    qtdVotacoes <- nrow(votacoes[votacoes$Data >= dataIni & votacoes$Data <= dataFim, ] )
+    
+    # filtra pelo intervalo e descarta votos em que flagCoalizao é igual a NA
+    estimativa <- analise[analise$Data >= dataIni & analise$Data <= dataFim & !is.na(analise$flagCoalizao), ]
+    
+    # índice de ausência geral
+    indAusenciaG <- nrow(estimativa[estimativa$Voto == "F", ])/nrow(estimativa)
+    # índice de ausência coalizão
+    indAusenciaC <- nrow(estimativa[estimativa$Voto == "F" & estimativa$flagCoalizao == '1', ])/
+                    sum(estimativa$flagCoalizao == '1')
+    # índice de ausência oposição
+    indAusenciaO <- nrow(estimativa[estimativa$Voto == "F" & estimativa$flagCoalizao == '0', ])/
+                    sum(estimativa$flagCoalizao == '0')
+    
+    estimaPeriodo <- rbind(estimaPeriodo, 
+                           data.frame( 
+                             ano=ano,
+                             periodo=i,
+                             dataIni=dataIni, 
+                             dataFim=dataFim,
+                             
+                             qtdVotacoes=qtdVotacoes,
+                             
+                             ausenciaMediaG=mean(indAusenciaG),
+                             ausenciaMediaC=mean(indAusenciaC),
+                             ausenciaMediaO=mean(indAusenciaO),
+                             
+                             indAcompanhaLiderG=sum(estimativa$acompanhaLider)/nrow(estimativa),
+                             indAcompanhaLiderGxF=sum(estimativa$acompanhaLider)/nrow(estimativa[estimativa$Voto != "F", ]),
+                             
+                             indAcompanhaLiderC=sum(estimativa$acompanhaLider[estimativa$flagCoalizao == '1'])/
+                                                length(estimativa$acompanhaLider[estimativa$flagCoalizao == '1']),
+                             indAcompanhaLiderCxF=sum(estimativa$acompanhaLider[estimativa$flagCoalizao == '1'])/
+                                                  length(estimativa$acompanhaLider[estimativa$flagCoalizao == '1' & 
+                                                                                   estimativa$Voto != "F"]),
+                             
+                             indAcompanhaLiderO=sum(estimativa$acompanhaLider[estimativa$flagCoalizao == '0'])/
+                                                length(estimativa$acompanhaLider[estimativa$flagCoalizao == '0']),
+                             indAcompanhaLiderOxF=sum(estimativa$acompanhaLider[estimativa$flagCoalizao == '0'])/
+                                                  length(estimativa$acompanhaLider[estimativa$flagCoalizao == '0' & 
+                                                                                   estimativa$Voto != "F"]),
+                             
+                             
+                             indAcompanhaGovG=sum(estimativa$acompanhaGov)/nrow(estimativa),
+                             indAcompanhaGovGxF=sum(estimativa$acompanhaGov)/nrow(estimativa[estimativa$Voto != "F", ]),
+                             
+                             indAcompanhaGovC=sum(estimativa$acompanhaGov[estimativa$flagCoalizao == '1'])/
+                                              length(estimativa$acompanhaGov[estimativa$flagCoalizao == '1']),
+                             indAcompanhaGovCxF=sum(estimativa$acompanhaGov[estimativa$flagCoalizao == '1'])/
+                                                length(estimativa$acompanhaGov[estimativa$flagCoalizao == '1' & 
+                                                                               estimativa$Voto != "F"]),
+                             
+                             indAcompanhaGovO=sum(estimativa$acompanhaGov[estimativa$flagCoalizao == '0'])/
+                                              length(estimativa$acompanhaGov[estimativa$flagCoalizao == '0']),
+                             indAcompanhaGovOxF=sum(estimativa$acompanhaGov[estimativa$flagCoalizao == '0'])/
+                                                length(estimativa$acompanhaGov[estimativa$flagCoalizao == '0' & 
+                                                                               estimativa$Voto != "F"])
+                           ) 
+                    )
+  
+  }
+}
+
+# head(estimaPeriodo,14)
+estimaPeriodo
+
+write.csv2(estimaPeriodo, "_estima_periodo.csv")
+```
+
+### Testes de Hipótese
+
+São testadas as seguintes hipóteses, considerando-se os parlamentares da coalizão:
+
+* **Ano par - período 1/Mar a 31/Out** pertence à mesma distribuição de **Ano par - período 1/Nov a 31/Dez**
+* **Ano par - período 1/Mar a 31/Out** pertence à mesma distribuição de **Ano ímpar - período 1/Jan a 31/Dez**
+
+```{r}
+# Ano par - período 1/Mar a 31/Out
+par1 <- estimaPeriodo[(estimaPeriodo$ano %% 2) == 0 & estimaPeriodo$periodo == 1, ]
+# Ano par - período 1/Nov a 31/Dez
+par2 <- estimaPeriodo[(estimaPeriodo$ano %% 2) == 0 & estimaPeriodo$periodo == 2, ]
+# Ano ímpar - período 1/Jan a 31/Dez
+impar <- estimaPeriodo[(estimaPeriodo$ano %% 2) == 1 & estimaPeriodo$periodo == 3, ]
+
+df <- data.frame(impar[,c("ano","qtdVotacoes","indAcompanhaGovGxF")],
+                 par1[,c("ano","qtdVotacoes","indAcompanhaGovGxF")],
+                 par2[,c("qtdVotacoes","indAcompanhaGovGxF")])
+df <- df[, c(4,5,6,7,8,1,2,3)]
+
+rownames(df) <- NULL
+names(df) <- c("Ano Par", "Qtd Votações período 1", "Período Eleitoral", "Qtd Votações período 2", "Período pós eleições", "Ano Ímpar", "Qtd Votações período 3", "Período não eleitoral")
+```
+
+```{r, echo=FALSE}
+df[,1] <- as.character(df[,1])
+df[,6] <- as.character(df[,6])
+
+# insere a média no final da tabela
+df2 <- data.frame("Média", mean(df[,2]), mean(df[,3]), mean(df[,4]), mean(df[,5], na.rm=TRUE), "", mean(df[,7]), mean(df[,8]))
+rownames(df2) <- NULL
+names(df2) <- c("Ano Par", "Qtd Votações período 1", "Período Eleitoral", "Qtd Votações período 2", "Período pós eleições", "Ano Ímpar", "Qtd Votações período 3", "Período não eleitoral")
+
+df <- rbind(df, df2)
+
+# insere o desvio-padrão no final da tabela
+df2 <- data.frame("DP", sd(df[,2]), sd(df[,3]), sd(df[,4]), sd(df[,5], na.rm=TRUE), "", sd(df[,7]), sd(df[,8]))
+rownames(df2) <- NULL
+names(df2) <- c("Ano Par", "Qtd Votações período 1", "Período Eleitoral", "Qtd Votações período 2", "Período pós eleições", "Ano Ímpar", "Qtd Votações período 3", "Período não eleitoral")
+
+df <- rbind(df, df2)
+
+df[,c("Qtd Votações período 1")] <- round(df[,c("Qtd Votações período 1")],0)
+df[,c("Qtd Votações período 1")] <- as.character(df[,c("Qtd Votações período 1")])
+df[c(13,14),c("Qtd Votações período 1")] <- c("","")
+
+df[,c("Qtd Votações período 2")] <- round(df[,c("Qtd Votações período 2")],0)
+df[,c("Qtd Votações período 2")] <- as.character(df[,c("Qtd Votações período 2")])
+df[c(13,14),c("Qtd Votações período 2")] <- c("","")
+
+df[,c("Qtd Votações período 3")] <- round(df[,c("Qtd Votações período 3")],0)
+df[,c("Qtd Votações período 3")] <- as.character(df[,c("Qtd Votações período 3")])
+df[c(13,14),c("Qtd Votações período 3")] <- c("","")
+
+df[,c("Período não eleitoral")] <- round(df[,c("Período não eleitoral")],4)
+df[,c("Período Eleitoral")] <- round(df[,c("Período Eleitoral")],4)
+df[,c("Período pós eleições")] <- round(df[,c("Período pós eleições")],4)
+
+
+library(knitr)
+kable(df, caption="Médias de fidelidade do parlamentar à orientação do Governo: período 1 - 1/Mar a 31/Out; período 2 - 1/Nov a 31/Dez; período 3 - 1/Jan a 31/Dez")
+```
+
+```{r}
+# Teste de normalidade para o índice de acompanhamento do Governo, 
+# excluindo-se os faltosos, para os parlamentares da colaizão
+shapiro.test(par1$indAcompanhaGovCxF)
+shapiro.test(par2$indAcompanhaGovCxF)
+shapiro.test(impar$indAcompanhaGovCxF)
+```
+
+O teste de Shapiro-Wilk revela que apenas o índice para anos ímpares possui distribuição normal, o que invabiliza a utilização de testes paramétricos.
+
+Podemos, então, decidir se as distribuições dos índices de acompanhamento do Governo, correspondentes aos anos pares e ímpares, são idênticas ou não utilizando o **Wilcoxon Signed-Rank Test**, com nível de significância de 0.05, sem assumir que as distribuições são normais.
+
+```{r}
+# http://www.r-tutor.com/elementary-statistics/non-parametric-methods/wilcoxon-signed-rank-test
+wilcox.test(par1$indAcompanhaGovCxF,par2$indAcompanhaGovCxF,paired=TRUE)
+wilcox.test(par1$indAcompanhaGovCxF,impar$indAcompanhaGovCxF,paired=TRUE)
+
+```
+
+Conclui-se que, ao nível de significância de 0,05, não há diferença entre as distribuições dos dois testes efetuados, o que refuta, de acordo com o método adotado, o princípio da teoria dos ciclos eleitorais para o caso da Câmara dos Deputados.
+
+
