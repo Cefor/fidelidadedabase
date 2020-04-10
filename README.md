@@ -16,6 +16,6 @@ Adotou-se abordagem quantitativa para verificar se há diferença entre as médi
 
 ## Publicação 
 
-Este estudo foi publicado como o capítulo "Inexistência de impacto dos
+Este estudo foi publicado como o capítulo **Inexistência de impacto dos
 ciclos eleitorais sobre a disciplina
-parlamentar na Câmara dos Deputados" do livro ["PRESIDENCIALISMO DE COALIZÃO EM MOVIMENTO"] (http://bd.camara.gov.br/bd/handle/bdcamara/38299)
+parlamentar na Câmara dos Deputados** do livro ["PRESIDENCIALISMO DE COALIZÃO EM MOVIMENTO"](http://bd.camara.gov.br/bd/handle/bdcamara/38299)
