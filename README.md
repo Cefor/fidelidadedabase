@@ -13,3 +13,9 @@ Adotou-se abordagem quantitativa para verificar se há diferença entre as médi
 ## Análise dos dados e resultados
 
 ["02_Analise.html"](http://htmlpreview.github.com/?https://github.com/Cefor/fidelidadedabase/blob/master/02_Analise.html)
+
+## Publicação 
+
+Este estudo foi publicado como o capítulo "Inexistência de impacto dos
+ciclos eleitorais sobre a disciplina
+parlamentar na Câmara dos Deputados" do livro [PRESIDENCIALISMO DE COALIZÃO EM MOVIMENTO] (http://bd.camara.gov.br/bd/handle/bdcamara/38299)
