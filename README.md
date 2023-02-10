@@ -19,3 +19,7 @@ Adotou-se abordagem quantitativa para verificar se há diferença entre as médi
 Este estudo foi publicado no capítulo **"Inexistência de impacto dos
 ciclos eleitorais sobre a disciplina
 parlamentar na Câmara dos Deputados"** do livro [PRESIDENCIALISMO DE COALIZÃO EM MOVIMENTO](http://bd.camara.gov.br/bd/handle/bdcamara/38299)
+
+## Grupo de Pesquisa
+
+Pesquisa realizada no âmbito do grupo [Ciência de Dados Aplicada ao Estudo do Poder Legislativo: abordagem computacional e métodos de análise](http://dgp.cnpq.br/dgp/espelhogrupo/9712095383739020)
